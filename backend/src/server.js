@@ -17,10 +17,8 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? 'http://localhost:3000' 
-    : 'http://localhost:3000',
-  credentials: true,
+  origin: 'https://voting-system-woad.vercel.app', 
+  credentials: true 
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
