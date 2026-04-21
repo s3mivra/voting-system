@@ -43,7 +43,7 @@ const PollForm: React.FC = () => {
       text: '',
       type: 'multipleChoice',
       required: true,
-      display: true, // <-- Add this line
+      display: true,
       options: [
         { id: Date.now().toString() + '1', text: '' },
         { id: Date.now().toString() + '2', text: '' },
@@ -113,7 +113,6 @@ const PollForm: React.FC = () => {
     setError('');
     setLoading(true);
 
-    // Clean questions data - remove empty options
     const cleanedQuestions = questions.map((q) => ({
       ...q,
       options: q.options.filter((opt) => opt.text.trim() !== ''),
