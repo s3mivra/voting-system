@@ -38,9 +38,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    const { logout: logoutApi } = await import('../services/authService');
-    await logoutApi();
-    setUser(null);
+    try {
+      const { logout: logoutApi } = await import('../services/authService');
+      await logoutApi();
+    } catch (error) {
+      // If the server throws a 401, the session is already dead. 
+      // We catch the error here so the app doesn't crash.
+      console.warn('Server logout failed, clearing local state anyway.');
+    } finally {
+      // This will ALWAYS run, completely clearing the user from React memory 
+      // and forcing a redirect to the login screen.
+      setUser(null);
+    }
   };
 
   return (
