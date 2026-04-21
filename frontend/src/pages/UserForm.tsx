@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, Upload, CheckCircle, X, AlertTriangle, User as UserIcon } from 'lucide-react';
 import { getUsers, createUser, updateUser, bulkUploadUsers } from '../services/adminService';
-import type { User as UserType } from '../types';
 
 const UserForm: React.FC = () => {
   const navigate = useNavigate();

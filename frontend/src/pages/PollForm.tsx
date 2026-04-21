@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, Plus, Trash2, CheckCircle, X, AlertTriangle } from 'lucide-react';
 import { getPolls, createPoll, updatePoll, launchPoll, closePoll } from '../services/adminService';
-import type { Poll, Question, Option } from '../types';
+import type { Question } from '../types';
 
 const PollForm: React.FC = () => {
   const navigate = useNavigate();
