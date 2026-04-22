@@ -15,6 +15,15 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
 
+  // Accordion state for the grouped metrics
+  const [expandedPolls, setExpandedPolls] = useState<string[]>([]);
+
+  const togglePoll = (pollId: string) => {
+    setExpandedPolls(prev => 
+      prev.includes(pollId) ? prev.filter(id => id !== pollId) : [...prev, pollId]
+    );
+  };
+
   useEffect(() => {
     if (!user || user.role !== 'admin') {
       navigate('/');
@@ -22,6 +31,7 @@ const AdminDashboard: React.FC = () => {
     }
     loadData();
   }, [user, navigate, userFilter]);
+
   const loadData = async () => {
     try {
       const [metricsData, pollsData, usersData] = await Promise.all([
@@ -34,7 +44,7 @@ const AdminDashboard: React.FC = () => {
       setUsers(usersData);
       setLoading(false);
     } catch (err) {
-      console.error('Failed to load data');
+      console.error('Failed to load data', err);
       setLoading(false);
     }
   };
@@ -48,9 +58,7 @@ const AdminDashboard: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this user? This cannot be undone.')) {
       try {
         await deleteUser(userId);
-        // Remove the user from the local React state instantly
         setUsers(users.filter((u) => u._id !== userId));
-        // Optional: reload metrics to update the total counts
         loadData(); 
       } catch (err) {
         console.error('Failed to delete user');
@@ -109,6 +117,7 @@ const AdminDashboard: React.FC = () => {
           </button>
         </div>
 
+        {/* METRICS TAB */}
         {activeTab === 'metrics' && metrics && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
@@ -127,33 +136,59 @@ const AdminDashboard: React.FC = () => {
               <p className="text-sm text-gray-400 mb-2">Vote Ratio</p>
               <p className="text-3xl font-light text-blue-600">{metrics.voteRatio}%</p>
             </div>
+
+            {/* NEW COLLAPSIBLE LIVE POLL RESULTS */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 sm:col-span-2">
-              <p className="text-sm text-gray-400 mb-4">Top Options</p>
-              <div className="space-y-4">
-                {metrics.topOptions.map((option, index) => (
-                  <div key={index} className="flex justify-between items-center border-b border-gray-50 pb-3 last:border-0">
-                    <div className="flex flex-col">
-                      <span className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">
-                        {option.pollTitle}
-                      </span>
-                      <span className="text-gray-800 font-medium text-sm">
-                        {option.questionText}
-                      </span>
-                      <span className="text-blue-500 text-xs mt-1">
-                        {option.optionText}
-                      </span>
+              <p className="text-sm text-gray-400 mb-4">Live Poll Results</p>
+              {metrics?.groupedResults && metrics.groupedResults.length > 0 ? (
+                <div className="space-y-4">
+                  {metrics.groupedResults.map((pollResult: any) => (
+                    <div key={pollResult.pollId} className="border border-gray-100 rounded-xl overflow-hidden">
+                      <button 
+                        onClick={() => togglePoll(pollResult.pollId)}
+                        className="w-full bg-gray-50 px-4 py-3 flex justify-between items-center hover:bg-gray-100 transition-colors"
+                      >
+                        <span className="font-medium text-gray-900 text-left">
+                          {pollResult.pollTitle} 
+                          <span className={`ml-3 text-xs px-2 py-1 rounded-full ${pollResult.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'}`}>
+                            {pollResult.status}
+                          </span>
+                        </span>
+                        <span className="text-gray-500">
+                          {expandedPolls.includes(pollResult.pollId) ? '▼' : '▶'}
+                        </span>
+                      </button>
+
+                      {expandedPolls.includes(pollResult.pollId) && (
+                        <div className="p-4 bg-white border-t border-gray-100 space-y-6">
+                          {pollResult.questions.map((q: any, qIdx: number) => (
+                            <div key={qIdx} className="ml-2">
+                              <h4 className="font-medium text-gray-800 mb-3">{q.questionText}</h4>
+                              <div className="space-y-2">
+                                {q.options.map((opt: any, optIdx: number) => (
+                                  <div key={optIdx} className="flex justify-between items-center text-sm ml-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                    <span className="text-gray-700">{opt.text}</span>
+                                    <span className="font-mono font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-md">
+                                      {opt.count} votes
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex flex-col items-end">
-                      <span className="text-xl font-light text-gray-900">{option.count}</span>
-                      <span className="text-xs text-gray-400">votes</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm py-4">No active or closed polls to display.</p>
+              )}
             </div>
           </div>
         )}
 
+        {/* POLLS TAB */}
         {activeTab === 'polls' && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -237,6 +272,7 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* USERS TAB */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">

@@ -12,15 +12,12 @@ const fs = require('fs');
 // @access  Private/Admin
 const getMetrics = async (req, res) => {
   try {
-    const totalPolls = await Poll.countDocuments({ status: { $ne: 'draft' } });
     const totalVoters = await User.countDocuments({ role: 'voter' });
     
-
-    // A user is only "fully voted" if their votedPolls array length is >= total active/closed polls
     const activePolls = await Poll.find({ status: 'active' }, '_id');
     const activePollIds = activePolls.map(p => p._id);
 
-    // FIX: A user is only "fully voted" if their array contains ALL active poll IDs
+    // A user is only "fully voted" if their array contains ALL active poll IDs
     let totalVoted = 0;
     if (activePollIds.length > 0) {
       totalVoted = await User.countDocuments({ 
@@ -31,78 +28,54 @@ const getMetrics = async (req, res) => {
 
     const totalPending = totalVoters - totalVoted;
     const voteRatio = totalVoters > 0 ? ((totalVoted / totalVoters) * 100).toFixed(2) : 0;
-    // Most voted options using updated aggregation (Filters out display: false)
-    // Most voted options using updated aggregation (Filters out display: false AND closed polls)
-    const topOptions = await CastVote.aggregate([
-      {
-        $lookup: {
-          from: 'polls',
-          localField: 'pollId',
-          foreignField: '_id',
-          as: 'poll',
-        },
-      },
-      { $unwind: '$poll' },
-      
-      // FIX: Only show data for active polls in the Top Options widget
-      { $match: { 'poll.status': 'active' } }, 
-      
-      { $unwind: '$votes' },
-      // ... rest of the existing pipeline stays exactly the same
-      {
-        $addFields: {
-          questionDef: {
-            $first: {
-              $filter: {
-                input: '$poll.questions',
-                as: 'q',
-                cond: { $eq: ['$$q.id', '$votes.questionId'] }
-              }
-            }
-          }
-        }
-      },
-      // THIS IS THE FIX: Only include questions where display is not false
-      { $match: { 'questionDef.display': { $ne: false } } }, 
-      { $unwind: '$votes.selected' },
-      {
-        $group: {
-          _id: { pollId: '$pollId', questionId: '$votes.questionId', optionId: '$votes.selected' },
-          count: { $sum: 1 },
-          pollTitle: { $first: '$poll.title' },
-          questionText: { $first: '$questionDef.text' },
-          optionsDef: { $first: '$questionDef.options' }
-        },
-      },
-      { $sort: { count: -1 } },
-      { $limit: 10 },
-      {
-        $addFields: {
-          matchedOption: {
-            $first: {
-              $filter: {
-                input: '$optionsDef',
-                as: 'opt',
-                cond: { $eq: ['$$opt.id', '$_id.optionId'] }
-              }
-            }
-          }
-        }
-      },
-      {
-        $project: {
-          pollTitle: 1,
-          questionText: 1,
-          optionText: { $ifNull: ['$matchedOption.text', '$_id.optionId'] },
-          count: 1,
-        },
-      },
-    ]);
-
-    // This naturally equals (polls * voters) based on CastVote documents
     const totalVotes = await CastVote.countDocuments(); 
 
-    res.json({ totalVoters, totalVoted, totalPending, voteRatio, topOptions, totalVotes });
+    // --- NEW GROUPED ANALYTICS LOGIC ---
+    // Fetch all polls that aren't drafts, and all votes
+    const allPolls = await Poll.find({ status: { $ne: 'draft' } });
+    const allCastVotes = await CastVote.find();
+
+    const groupedResults = allPolls.map(poll => {
+      // Get only the votes cast for this specific poll
+      const pollVotes = allCastVotes.filter(v => v.pollId.toString() === poll._id.toString());
+      
+      const questions = poll.questions
+        .filter(q => q.display !== false && q.type !== 'fillInTheBlank') // Exclude hidden and text-input questions
+        .map(q => {
+          const tally = {};
+          
+          // 1. Initialize all options at 0
+          q.options.forEach(opt => tally[opt.id] = { text: opt.text, count: 0 });
+          
+          // 2. Count the votes
+          pollVotes.forEach(voteDoc => {
+            const answer = voteDoc.votes.find(v => v.questionId === q.id);
+            if (answer && answer.selected) {
+              const selections = Array.isArray(answer.selected) ? answer.selected : [answer.selected];
+              selections.forEach(selId => {
+                if (tally[selId]) tally[selId].count++;
+              });
+            }
+          });
+
+          // 3. Convert tally object to array and sort highest to lowest
+          const sortedOptions = Object.values(tally).sort((a, b) => b.count - a.count);
+
+          return {
+            questionText: q.text,
+            options: sortedOptions
+          };
+        });
+
+      return {
+        pollId: poll._id,
+        pollTitle: poll.title,
+        status: poll.status,
+        questions
+      };
+    });
+
+    res.json({ totalVoters, totalVoted, totalPending, voteRatio, totalVotes, groupedResults });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

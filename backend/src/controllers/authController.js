@@ -43,13 +43,15 @@ const login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, 
     });
 
+    // Inside login() AND completeScreening(), update the res.json block:
     res.json({
       _id: user._id,
       email: user.email,
       role: user.role,
       isScreened: user.isScreened,
-      votedPolls: user.votedPolls, // <-- Updated field
-      profile: user.profile, // (Include this if in the completeScreening route)
+      votedPolls: user.votedPolls,
+      profile: user.profile,
+      token, // <-- ADD THIS LINE IN BOTH FUNCTIONS
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -91,13 +93,15 @@ const completeScreening = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
+    // Inside login() AND completeScreening(), update the res.json block:
     res.json({
       _id: user._id,
       email: user.email,
       role: user.role,
       isScreened: user.isScreened,
-      votedPolls: user.votedPolls, // <-- Updated field
-      profile: user.profile, // (Include this if in the completeScreening route)
+      votedPolls: user.votedPolls,
+      profile: user.profile,
+      token, // <-- ADD THIS LINE IN BOTH FUNCTIONS
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

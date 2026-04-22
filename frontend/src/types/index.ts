@@ -48,11 +48,18 @@ export interface Metrics {
   totalVoted: number;
   totalPending: number;
   voteRatio: string;
-  topOptions: Array<{
-    pollTitle: string;
-    questionText: string; // Add this
-    optionText: string;   // Add this
-    count: number;
-  }>;
   totalVotes: number;
+  // We remove topOptions and replace it with the new nested structure
+  groupedResults: Array<{
+    pollId: string;
+    pollTitle: string;
+    status: string;
+    questions: Array<{
+      questionText: string;
+      options: Array<{
+        text: string;
+        count: number;
+      }>;
+    }>;
+  }>;
 }
